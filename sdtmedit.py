@@ -12,14 +12,14 @@ def debug(message):
         print(message)
 
 def load_words_from_csv(file_path):
-    """Loads words from a CSV file and returns a set of words."""
-    words = set()
+    """Loads words from a CSV file and returns a list of words."""
+    words = []
     try:
         with open(file_path, newline='', encoding='utf-8') as csvfile:
             reader = csv.reader(csvfile)
             for row in reader:
                 # Assuming each row contains single words
-                words.update(word.strip().upper() for word in row)
+                words.extend(word.strip().upper() for word in row)
     except Exception as e:
         debug(f"Error reading {file_path}: {e}")
     return words
@@ -31,7 +31,7 @@ class HighlighterFrame(wx.Frame):
         # Load words from CSV files
         self.source_words = load_words_from_csv('source_list.csv')
         self.target_words = load_words_from_csv('target_list.csv')
-        self.function_list = load_words_from_csv('function_list.csv')
+        self.function_list = sorted(load_words_from_csv('function_list.csv'))
 
         debug(f"Initialized with source_words: {self.source_words}, target_words: {self.target_words}, function_list: {self.function_list}")
 
@@ -39,17 +39,47 @@ class HighlighterFrame(wx.Frame):
 
     def init_ui(self):
         panel = wx.Panel(self)
-        vbox = wx.BoxSizer(wx.VERTICAL)
+        vbox_main = wx.BoxSizer(wx.VERTICAL)
+        hbox = wx.BoxSizer(wx.HORIZONTAL)
+        vbox_left = wx.BoxSizer(wx.VERTICAL)
+        vbox_center = wx.BoxSizer(wx.VERTICAL)
+        vbox_right = wx.BoxSizer(wx.VERTICAL)
 
-        # Create RichTextCtrl
+        # Create a read-only text box at the top
+        self.top_text = wx.TextCtrl(panel, style=wx.TE_READONLY | wx.TE_CENTER)
+        self.top_text.SetValue("SourceDomain=AE, TARGETDOMAIN=AE, MAPPINGVERSION=MK6552-003_3.4V1")
+
+        # Create RichTextCtrl for source, target, and function words
+        self.source_text = rt.RichTextCtrl(panel, style=wx.VSCROLL | wx.HSCROLL | wx.NO_BORDER | wx.TE_READONLY)
+        self.function_text = rt.RichTextCtrl(panel, style=wx.VSCROLL | wx.HSCROLL | wx.NO_BORDER | wx.TE_READONLY)
+        self.target_text = rt.RichTextCtrl(panel, style=wx.VSCROLL | wx.HSCROLL | wx.NO_BORDER | wx.TE_READONLY)
+
+        # Populate text boxes with words
+        self.source_text.SetValue('\n'.join(self.source_words))
+        self.function_text.SetValue('\n'.join(self.function_list))
+        self.target_text.SetValue('\n'.join(self.target_words))
+
+        # Create RichTextCtrl for the main editor
         self.rich_text = rt.RichTextCtrl(panel, style=wx.VSCROLL | wx.HSCROLL | wx.NO_BORDER)
         self.check_button = wx.Button(panel, label='Check Words')
         self.uppercase_button = wx.Button(panel, label='Uppercase')  # New Uppercase button
 
-        vbox.Add(self.rich_text, 1, wx.EXPAND | wx.ALL, 5)
-        vbox.Add(self.check_button, 0, wx.ALIGN_CENTER | wx.ALL, 5)
-        vbox.Add(self.uppercase_button, 0, wx.ALIGN_CENTER | wx.ALL, 5)  # Add Uppercase button to layout
-        panel.SetSizer(vbox)
+        vbox_center.Add(self.rich_text, 1, wx.EXPAND | wx.ALL, 5)
+        vbox_center.Add(self.check_button, 0, wx.ALIGN_CENTER | wx.ALL, 5)
+        vbox_center.Add(self.uppercase_button, 0, wx.ALIGN_CENTER | wx.ALL, 5)  # Add Uppercase button to layout
+
+        vbox_left.Add(self.source_text, 1, wx.EXPAND | wx.ALL, 5)
+        vbox_right.Add(self.function_text, 1, wx.EXPAND | wx.ALL, 5)
+        vbox_right.Add(self.target_text, 1, wx.EXPAND | wx.ALL, 5)
+
+        hbox.Add(vbox_left, 1, wx.EXPAND | wx.ALL, 5)
+        hbox.Add(vbox_center, 3, wx.EXPAND | wx.ALL, 5)
+        hbox.Add(vbox_right, 1, wx.EXPAND | wx.ALL, 5)
+
+        vbox_main.Add(self.top_text, 0, wx.EXPAND | wx.ALL, 5)
+        vbox_main.Add(hbox, 1, wx.EXPAND | wx.ALL, 5)
+
+        panel.SetSizer(vbox_main)
 
         # Bind events
         self.check_button.Bind(wx.EVT_BUTTON, self.highlight_words)
@@ -57,7 +87,7 @@ class HighlighterFrame(wx.Frame):
         self.rich_text.Bind(wx.EVT_TEXT, self.on_text_change)  # Hook to text change event
 
         self.SetTitle('Word Highlighter')
-        self.SetSize((600, 400))
+        self.SetSize((800, 600))
         self.Centre()
 
     def on_text_change(self, event):
@@ -69,27 +99,50 @@ class HighlighterFrame(wx.Frame):
         text = self.rich_text.GetValue()
         debug(f"Text entered: {text}")
 
-        words = set(re.findall(r'\b\w+\b', text))
-        debug(f"Unique words found: {words}")
-
-        # Reset styles
+        lines = text.split('\n')
         self.rich_text.SetStyle(0, len(text), wx.TextAttr(wx.BLACK))
-        for word in words:
-            color = wx.BLACK
-            upper_word = word.upper()
-            if upper_word in self.source_words:
-                color = wx.GREEN
-            elif upper_word in self.target_words:
-                color = wx.Colour(255, 165, 0)  # ORANGE
-            elif upper_word in self.function_list:
-                color = wx.BLUE
-            else:
-                color = wx.RED
 
-            debug(f"Highlighting word: '{word}' with color: {color}")
+        # Create sets to track highlighted words
+        highlighted_source_words = set()
+        highlighted_function_words = set()
+        highlighted_target_words = set()
 
-            for match in re.finditer(r'\b' + re.escape(word) + r'\b', text):
-                self.rich_text.SetStyle(match.start(), match.end(), wx.TextAttr(color))
+        for line in lines:
+            words = re.findall(r'\b\w+\b', line)
+            if not words:
+                continue
+
+            for word in words:
+                upper_word = word.upper()
+                if upper_word in self.source_words:
+                    color = wx.GREEN
+                    highlighted_source_words.add(upper_word)
+                elif upper_word in self.target_words:
+                    color = wx.Colour(255, 165, 0)  # ORANGE
+                    highlighted_target_words.add(upper_word)
+                elif upper_word in self.function_list:
+                    color = wx.BLUE
+                    highlighted_function_words.add(upper_word)
+                else:
+                    color = wx.RED
+
+                debug(f"Highlighting word: '{word}' with color: {color}")
+
+                for match in re.finditer(r'\b' + re.escape(word) + r'\b', text):
+                    self.rich_text.SetStyle(match.start(), match.end(), wx.TextAttr(color))
+
+        # Function to highlight words in the text boxes
+        def highlight_text_ctrl(text_ctrl, words, highlighted_words, color):
+            text_ctrl.SetStyle(0, text_ctrl.GetLastPosition(), wx.TextAttr(wx.BLACK))
+            for word in words:
+                if word in highlighted_words:
+                    for match in re.finditer(r'\b' + re.escape(word) + r'\b', text_ctrl.GetValue()):
+                        text_ctrl.SetStyle(match.start(), match.end(), wx.TextAttr(color))
+
+        # Highlight words in the text boxes
+        highlight_text_ctrl(self.source_text, self.source_words, highlighted_source_words, wx.GREEN)
+        highlight_text_ctrl(self.function_text, self.function_list, highlighted_function_words, wx.BLUE)
+        highlight_text_ctrl(self.target_text, self.target_words, highlighted_target_words, wx.Colour(255, 165, 0))
 
     def convert_to_uppercase(self, event):
         """Convert the text in the RichTextCtrl to uppercase."""
