@@ -93,9 +93,25 @@ class HighlighterFrame(wx.Frame):
         self.save_button.Bind(wx.EVT_BUTTON, self.save_text)  # Bind save button
         self.rich_text.Bind(wx.EVT_TEXT, self.on_text_change)  # Hook to text change event
 
+        # Bind double-click events
+        self.source_text.Bind(wx.EVT_LEFT_DCLICK, self.on_double_click)
+        self.function_text.Bind(wx.EVT_LEFT_DCLICK, self.on_double_click)
+        self.target_text.Bind(wx.EVT_LEFT_DCLICK, self.on_double_click)
+
         self.SetTitle('Word Highlighter')
         self.SetSize((800, 600))
         self.Centre()
+
+    def on_double_click(self, event):
+        """Handle double-click event to add the selected word to the main editor."""
+        obj = event.GetEventObject()
+        if isinstance(obj, rt.RichTextCtrl):
+            word = obj.GetStringSelection()
+            if word:
+                current_text = self.rich_text.GetValue()
+                self.rich_text.SetValue(current_text + ' ' + word)
+                debug(f"Added word '{word}' to the main editor.")
+        event.Skip()
 
     def on_text_change(self, event):
         """Handle text change event to highlight words."""
