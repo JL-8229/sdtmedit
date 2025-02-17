@@ -2,6 +2,7 @@ import wx
 import wx.richtext as rt
 import re
 import csv
+import os  # For file dialogs
 
 # Set DEBUG mode
 DEBUG = "Y"  # Change to "N" to disable debug messages.
@@ -63,10 +64,14 @@ class HighlighterFrame(wx.Frame):
         self.rich_text = rt.RichTextCtrl(panel, style=wx.VSCROLL | wx.HSCROLL | wx.NO_BORDER)
         self.check_button = wx.Button(panel, label='Check Words')
         self.uppercase_button = wx.Button(panel, label='Uppercase')  # New Uppercase button
+        self.load_button = wx.Button(panel, label='Load')  # New Load button
+        self.save_button = wx.Button(panel, label='Save')  # New Save button
 
         vbox_center.Add(self.rich_text, 1, wx.EXPAND | wx.ALL, 5)
         vbox_center.Add(self.check_button, 0, wx.ALIGN_CENTER | wx.ALL, 5)
         vbox_center.Add(self.uppercase_button, 0, wx.ALIGN_CENTER | wx.ALL, 5)  # Add Uppercase button to layout
+        vbox_center.Add(self.load_button, 0, wx.ALIGN_CENTER | wx.ALL, 5)  # Add Load button to layout
+        vbox_center.Add(self.save_button, 0, wx.ALIGN_CENTER | wx.ALL, 5)  # Add Save button to layout
 
         vbox_left.Add(self.source_text, 1, wx.EXPAND | wx.ALL, 5)
         vbox_right.Add(self.function_text, 1, wx.EXPAND | wx.ALL, 5)
@@ -84,6 +89,8 @@ class HighlighterFrame(wx.Frame):
         # Bind events
         self.check_button.Bind(wx.EVT_BUTTON, self.highlight_words)
         self.uppercase_button.Bind(wx.EVT_BUTTON, self.convert_to_uppercase)  # Bind uppercase button
+        self.load_button.Bind(wx.EVT_BUTTON, self.load_text)  # Bind load button
+        self.save_button.Bind(wx.EVT_BUTTON, self.save_text)  # Bind save button
         self.rich_text.Bind(wx.EVT_TEXT, self.on_text_change)  # Hook to text change event
 
         self.SetTitle('Word Highlighter')
@@ -99,7 +106,10 @@ class HighlighterFrame(wx.Frame):
         text = self.rich_text.GetValue()
         debug(f"Text entered: {text}")
 
-        lines = text.split('\n')
+        # Remove text between quotes for checking
+        text_to_check = re.sub(r'".*?"', '', text)
+
+        lines = text_to_check.split('\n')
         self.rich_text.SetStyle(0, len(text), wx.TextAttr(wx.BLACK))
 
         # Create sets to track highlighted words
@@ -149,6 +159,39 @@ class HighlighterFrame(wx.Frame):
         current_text = self.rich_text.GetValue()
         self.rich_text.SetValue(current_text.upper())  # Set the text to uppercase
         self.highlight_words(event)  # Re-highlight the text after conversion
+
+    def load_text(self, event):
+        """Load text from a file into the RichTextCtrl."""
+        with wx.FileDialog(self, "Open text file", wildcard="Text files (*.txt)|*.txt",
+                           style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return  # The user changed their mind
+
+            # Proceed loading the file chosen by the user
+            pathname = fileDialog.GetPath()
+            try:
+                with open(pathname, 'r', encoding='utf-8') as file:
+                    self.rich_text.SetValue(file.read())
+                self.highlight_words(event)  # Re-highlight the text after loading
+                debug(f"Loaded text from {pathname}")
+            except IOError as e:
+                wx.LogError(f"Cannot open file '{pathname}': {e}")
+
+    def save_text(self, event):
+        """Save text from the RichTextCtrl to a file."""
+        with wx.FileDialog(self, "Save text file", wildcard="Text files (*.txt)|*.txt",
+                           style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as fileDialog:
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return  # The user changed their mind
+
+            # Proceed saving the file chosen by the user
+            pathname = fileDialog.GetPath()
+            try:
+                with open(pathname, 'w', encoding='utf-8') as file:
+                    file.write(self.rich_text.GetValue())
+                debug(f"Saved text to {pathname}")
+            except IOError as e:
+                wx.LogError(f"Cannot save current contents in file '{pathname}': {e}")
 
 class HighlighterApp(wx.App):
     def OnInit(self):
