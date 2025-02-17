@@ -129,9 +129,9 @@ class HighlighterFrame(wx.Frame):
                 break
 
         if selected_word:
-            current_text = self.rich_text.GetValue()
-            self.rich_text.SetValue(current_text + ' ' + selected_word)
-            debug(f"Copied word '{selected_word}' to the main editor.")
+            current_pos = self.rich_text.GetInsertionPoint()
+            self.rich_text.WriteText(selected_word + ' ')
+            debug(f"Copied word '{selected_word}' to the main editor at position {current_pos}.")
             if selected_ctrl:
                 selected_ctrl.SetInsertionPointEnd()  # Clear the selection by moving the insertion point
 
