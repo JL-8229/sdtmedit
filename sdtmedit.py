@@ -114,21 +114,26 @@ class HighlighterFrame(wx.Frame):
                 current_text = self.rich_text.GetValue()
                 self.rich_text.SetValue(current_text + ' ' + word)
                 debug(f"Added word '{word}' to the main editor.")
+                obj.SetSelection(-1, -1)  # Unselect the word
         event.Skip()
 
     def copy_word_to_editor(self, event):
         """Handle copy button click to add the selected word to the main editor."""
         selected_word = None
+        selected_ctrl = None
         for text_ctrl in [self.source_text, self.function_text, self.target_text]:
             word = text_ctrl.GetStringSelection()
             if word:
                 selected_word = word
+                selected_ctrl = text_ctrl
                 break
 
         if selected_word:
             current_text = self.rich_text.GetValue()
             self.rich_text.SetValue(current_text + ' ' + selected_word)
             debug(f"Copied word '{selected_word}' to the main editor.")
+            if selected_ctrl:
+                selected_ctrl.SetSelection(-1, -1)  # Unselect the word
 
     def on_text_change(self, event):
         """Handle text change event to highlight words."""
