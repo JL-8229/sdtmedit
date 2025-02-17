@@ -66,12 +66,14 @@ class HighlighterFrame(wx.Frame):
         self.uppercase_button = wx.Button(panel, label='Uppercase')  # New Uppercase button
         self.load_button = wx.Button(panel, label='Load')  # New Load button
         self.save_button = wx.Button(panel, label='Save')  # New Save button
+        self.copy_button = wx.Button(panel, label='Copy/Word')  # New Copy/Word button
 
         vbox_center.Add(self.rich_text, 1, wx.EXPAND | wx.ALL, 5)
         vbox_center.Add(self.check_button, 0, wx.ALIGN_CENTER | wx.ALL, 5)
         vbox_center.Add(self.uppercase_button, 0, wx.ALIGN_CENTER | wx.ALL, 5)  # Add Uppercase button to layout
         vbox_center.Add(self.load_button, 0, wx.ALIGN_CENTER | wx.ALL, 5)  # Add Load button to layout
         vbox_center.Add(self.save_button, 0, wx.ALIGN_CENTER | wx.ALL, 5)  # Add Save button to layout
+        vbox_center.Add(self.copy_button, 0, wx.ALIGN_CENTER | wx.ALL, 5)  # Add Copy/Word button to layout
 
         vbox_left.Add(self.source_text, 1, wx.EXPAND | wx.ALL, 5)
         vbox_right.Add(self.function_text, 1, wx.EXPAND | wx.ALL, 5)
@@ -91,6 +93,7 @@ class HighlighterFrame(wx.Frame):
         self.uppercase_button.Bind(wx.EVT_BUTTON, self.convert_to_uppercase)  # Bind uppercase button
         self.load_button.Bind(wx.EVT_BUTTON, self.load_text)  # Bind load button
         self.save_button.Bind(wx.EVT_BUTTON, self.save_text)  # Bind save button
+        self.copy_button.Bind(wx.EVT_BUTTON, self.copy_word_to_editor)  # Bind copy button
         self.rich_text.Bind(wx.EVT_TEXT, self.on_text_change)  # Hook to text change event
 
         # Bind double-click events
@@ -112,6 +115,20 @@ class HighlighterFrame(wx.Frame):
                 self.rich_text.SetValue(current_text + ' ' + word)
                 debug(f"Added word '{word}' to the main editor.")
         event.Skip()
+
+    def copy_word_to_editor(self, event):
+        """Handle copy button click to add the selected word to the main editor."""
+        selected_word = None
+        for text_ctrl in [self.source_text, self.function_text, self.target_text]:
+            word = text_ctrl.GetStringSelection()
+            if word:
+                selected_word = word
+                break
+
+        if selected_word:
+            current_text = self.rich_text.GetValue()
+            self.rich_text.SetValue(current_text + ' ' + selected_word)
+            debug(f"Copied word '{selected_word}' to the main editor.")
 
     def on_text_change(self, event):
         """Handle text change event to highlight words."""
